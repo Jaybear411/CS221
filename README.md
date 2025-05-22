@@ -16,6 +16,8 @@ A machine learning application that recognizes hand-drawn sketches and provides 
    ```
 
 3. **Download data**:
+   
+   **Option 1: Direct download from Quick Draw website**
    - Visit [Quick Draw Dataset](https://quickdraw.withgoogle.com/data)
    - Download simplified drawings (NDJSON format) for categories like:
      - cat
@@ -23,13 +25,33 @@ A machine learning application that recognizes hand-drawn sketches and provides 
      - car
      - (add more as desired)
    - Save files to `data/raw/` directory
+   
+   **Option 2: Command line download using gsutil**
+   ```bash
+   # Install Google Cloud SDK if you don't have it
+   # See: https://cloud.google.com/sdk/docs/install
+   
+   # Create raw data directory
+   mkdir -p data/raw
+   cd data/raw
+   
+   # Download specific categories
+   gsutil cp gs://quickdraw_dataset/full/simplified/cat.ndjson .
+   gsutil cp gs://quickdraw_dataset/full/simplified/tree.ndjson .
+   gsutil cp gs://quickdraw_dataset/full/simplified/car.ndjson .
+   
+   cd ../..
+   ```
+   
+   For more information on available categories, visit:
+   https://github.com/googlecreativelab/quickdraw-dataset#the-raw-moderated-dataset
 
-## Training
+## Data Processing
 
 1. **Process the data**:
    ```bash
    # Create necessary directories
-   mkdir -p data/raw data/processed/png
+   mkdir -p data/processed/png
    
    # Convert raw data to PNG images
    python data/utils/convert_to_png.py --input_dir data/raw --output_dir data/processed/png --max_samples 5000
