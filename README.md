@@ -54,10 +54,10 @@ A machine learning application that recognizes hand-drawn sketches and provides 
    mkdir -p data/processed/png
    
    # Convert raw data to PNG images
-   python data/utils/convert_to_png.py --input_dir data/raw --output_dir data/processed/png --max_samples 5000
+   python utils/convert_to_png.py --input_dir data/raw --output_dir data/processed/png --max_samples 5000
    
    # Preprocess images
-   python data/utils/preprocess.py --input_dir data/processed/png --output_dir data/processed
+   python utils/preprocess.py --input_dir data/processed/png --output_dir data/processed
    ```
 
 2. **Train the models**:
