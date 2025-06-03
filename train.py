@@ -73,10 +73,10 @@ def main():
         
         if os.path.exists(args.data_dir) and any(f.endswith('.ndjson') for f in os.listdir(args.data_dir)):
             convert_cmd = (
-                f"python data/utils/convert_to_png.py "
+                f"python utils/convert_to_png.py "
                 f"--input_dir {args.data_dir} "
                 f"--output_dir {png_dir} "
-                f"--max_samples 5000"
+                f"--max_samples 20000"
             )
             if not run_command(convert_cmd, "Converting raw data to PNG images"):
                 return
@@ -85,7 +85,7 @@ def main():
         
         # Preprocess PNG images into train/val/test sets
         preprocess_cmd = (
-            f"python data/utils/preprocess.py "
+            f"python utils/preprocess.py "
             f"--input_dir {png_dir} "
             f"--output_dir {args.processed_dir} "
             f"--val_size 0.15 "

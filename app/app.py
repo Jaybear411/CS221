@@ -36,20 +36,24 @@ def load_app_model(model_path, mapping_path):
 def preprocess_image_data(image_data):
     """Preprocess the image data for model input."""
     try:
-        # Convert base64 data to image
+        # Decode base64 image data
         image_data = base64.b64decode(image_data.split(',')[1])
-        image = Image.open(io.BytesIO(image_data))
-        
+        img = Image.open(io.BytesIO(image_data)).convert('RGBA')  # Preserve alpha
+
+        # Create a white background image and paste the sketch onto it using alpha channel as mask
+        white_bg = Image.new('RGBA', img.size, (255, 255, 255, 255))
+        white_bg.paste(img, mask=img.split()[3])  # Use alpha channel as mask
+
         # Convert to grayscale
-        image = image.convert('L')
-        
-        # Resize to 64x64
-        image = image.resize((64, 64), Image.LANCZOS)
-        
-        # Convert to numpy array and normalize
-        image_array = np.array(image) / 255.0
-        
-        print(f"Preprocessed image shape: {image_array.shape}, min: {image_array.min()}, max: {image_array.max()}")
+        img_gray = white_bg.convert('L')
+
+        # Resize to 64x64 (model input size)
+        img_gray = img_gray.resize((64, 64), Image.LANCZOS)
+
+        # Convert to numpy array and normalize to [0,1]
+        image_array = np.array(img_gray) / 255.0
+
+        print(f"Preprocessed image shape: {image_array.shape}, min: {image_array.min():.3f}, max: {image_array.max():.3f}, mean: {image_array.mean():.3f}")
         return image_array
     except Exception as e:
         print(f"Error in preprocessing: {str(e)}")
