@@ -1,0 +1,9 @@
+{
+  "image_path": "data/processed/png/cat/5264339894272000.png",
+  "target_class": "car",
+  "target_class_index": 0,
+  "target_class_confidence": 2.3209837607396366e-08,
+  "predicted_class": "cat",
+  "predicted_class_index": 1,
+  "predicted_class_confidence": 1.0
+}

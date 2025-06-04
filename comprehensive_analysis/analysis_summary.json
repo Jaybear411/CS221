@@ -1,0 +1,24 @@
+{
+  "image_path": "data/processed/png/cat/5264339894272000.png",
+  "model_path": "models/latest/cnn/cnn_model_20250603-123654/best_model.h5",
+  "predicted_class": 1,
+  "predicted_label": "cat",
+  "confidence": 1.0,
+  "top_predictions": [
+    {
+      "rank": 1,
+      "class_name": "cat",
+      "confidence": 1.0
+    },
+    {
+      "rank": 2,
+      "class_name": "car",
+      "confidence": 2.3209837607396366e-08
+    },
+    {
+      "rank": 3,
+      "class_name": "tree",
+      "confidence": 1.0661125454669573e-10
+    }
+  ]
+}

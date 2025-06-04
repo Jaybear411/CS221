@@ -14,6 +14,10 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tts.speak import speak_text, format_message
 
+# Add import for Grad-CAM
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from visualization.gradcam import GradCAM
+
 def load_model(model_path):
     """Load a model from file, supporting both Keras and scikit-learn formats."""
     if model_path.endswith('.h5'):
@@ -99,6 +103,66 @@ def predict(model, image, label_mapping, is_keras_model):
     else:
         return predict_sklearn(model, image, label_mapping)
 
+def predict_keras_with_gradcam(model, image, label_mapping, generate_gradcam=False, output_dir=None):
+    """Make a prediction with a Keras model and optionally generate Grad-CAM visualization."""
+    try:
+        print(f"Image shape before reshaping: {image.shape}, dtype: {image.dtype}")
+        
+        # Reshape image for CNN (add batch and channel dimensions)
+        image_tensor = image.reshape(1, image.shape[0], image.shape[1], 1)
+        print(f"Reshaped tensor shape: {image_tensor.shape}")
+        
+        # Get prediction probabilities
+        print("Making prediction with model...")
+        pred_probs = model.predict(image_tensor)[0]
+        print(f"Prediction probabilities shape: {pred_probs.shape}")
+        print(f"Probabilities: {pred_probs}")
+        
+        # Get top prediction
+        pred_idx = np.argmax(pred_probs)
+        confidence = pred_probs[pred_idx]
+        
+        # Get label name
+        label = label_mapping.get(str(pred_idx), f"Unknown-{pred_idx}")
+        print(f"Predicted class index: {pred_idx}, label: {label}, confidence: {confidence}")
+        
+        gradcam_result = None
+        if generate_gradcam:
+            try:
+                print("Generating Grad-CAM visualization...")
+                gradcam = GradCAM(model)
+                
+                # Get class names
+                class_names = [label_mapping.get(str(i), f"Class {i}") for i in range(len(label_mapping))]
+                
+                # Generate visualization
+                if output_dir:
+                    os.makedirs(output_dir, exist_ok=True)
+                    save_path = os.path.join(output_dir, "gradcam_prediction.png")
+                else:
+                    save_path = None
+                
+                gradcam_result = gradcam.visualize_prediction(
+                    image_tensor,
+                    class_names=class_names,
+                    save_path=save_path,
+                    show_plot=False
+                )
+                print("Grad-CAM visualization generated successfully!")
+                
+            except Exception as e:
+                print(f"Error generating Grad-CAM: {str(e)}")
+                import traceback
+                print(traceback.format_exc())
+        
+        return label, confidence, pred_probs, gradcam_result
+        
+    except Exception as e:
+        print(f"Error in predict_keras_with_gradcam: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        raise
+
 def main():
     parser = argparse.ArgumentParser(description="Make predictions on a sketch image")
     parser.add_argument("--model_path", type=str, required=True, help="Path to the trained model")
@@ -109,6 +173,8 @@ def main():
     parser.add_argument("--speak", action="store_true", help="Speak the prediction")
     parser.add_argument("--confidence_threshold", type=float, default=0.5,
                         help="Confidence threshold for speaking")
+    parser.add_argument("--output_dir", type=str, help="Output directory for visualizations")
+    parser.add_argument("--gradcam", action="store_true", help="Generate Grad-CAM visualizations")
     
     args = parser.parse_args()
     
@@ -136,7 +202,15 @@ def main():
         processed_image = preprocess_image(img)
     
     # Make prediction
-    label, confidence, probabilities = predict(model, processed_image, label_mapping, is_keras_model)
+    if args.gradcam:
+        label, confidence, probabilities, gradcam_result = predict_keras_with_gradcam(
+            model, processed_image, label_mapping, generate_gradcam=True, output_dir=args.output_dir
+        )
+        if gradcam_result:
+            print(f"Grad-CAM heatmap shape: {gradcam_result['heatmap'].shape}")
+            print(f"Superimposed image saved: {gradcam_result.get('superimposed') is not None}")
+    else:
+        label, confidence, probabilities = predict(model, processed_image, label_mapping, is_keras_model)
     
     print(f"Prediction: {label}")
     print(f"Confidence: {confidence:.4f}")

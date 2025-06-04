@@ -14,6 +14,17 @@ from flask import Flask, render_template, request, jsonify
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.inference.predict import load_model, load_label_mapping, predict
 
+# Add the src directory to Python path
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+try:
+    from inference.predict import preprocess_image_data, predict_keras
+    from visualization.gradcam import GradCAM
+    print("Successfully imported prediction modules and Grad-CAM")
+except ImportError as e:
+    print(f"Import error: {e}")
+    print("Make sure the src directory is properly set up")
+
 app = Flask(__name__)
 
 # Global variables for model and label mapping
@@ -99,6 +110,130 @@ def predict_sketch():
         print(f"Error predicting sketch: {str(e)}")
         print(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
+
+@app.route('/predict_with_gradcam', methods=['POST'])
+def predict_with_gradcam():
+    """Make a prediction and generate Grad-CAM visualization."""
+    try:
+        if 'image' not in request.json:
+            return jsonify({'error': 'No image data provided'}), 400
+
+        # Preprocess the image
+        image_data = request.json['image']
+        processed_image = preprocess_image_data(image_data)
+        
+        # Make prediction
+        label, confidence, probabilities = predict_keras(model, processed_image, label_mapping)
+        
+        # Generate Grad-CAM visualization
+        gradcam = GradCAM(model)
+        
+        # Prepare image for Grad-CAM (add batch and channel dimensions)
+        image_tensor = processed_image.reshape(1, 64, 64, 1)
+        
+        # Get class names
+        class_names = [label_mapping.get(str(i), f"Class {i}") for i in range(len(label_mapping))]
+        
+        # Generate heatmap and superimposed image
+        heatmap, predictions, predicted_class = gradcam.generate_gradcam(image_tensor)
+        superimposed = gradcam.create_superimposed_visualization(image_tensor, heatmap)
+        
+        # Convert superimposed image to base64 for web display
+        buffered = io.BytesIO()
+        superimposed.save(buffered, format="PNG")
+        superimposed_b64 = base64.b64encode(buffered.getvalue()).decode()
+        
+        # Convert heatmap to base64 for web display
+        heatmap_img = Image.fromarray((heatmap * 255).astype(np.uint8))
+        heatmap_buffered = io.BytesIO()
+        heatmap_img.save(heatmap_buffered, format="PNG")
+        heatmap_b64 = base64.b64encode(heatmap_buffered.getvalue()).decode()
+        
+        # Get top predictions
+        top_predictions = []
+        if probabilities is not None:
+            top_indices = np.argsort(probabilities)[-5:][::-1]  # Top 5 predictions
+            for idx in top_indices:
+                class_name = label_mapping.get(str(idx), f"Unknown-{idx}")
+                prob = float(probabilities[idx])
+                top_predictions.append({
+                    'class': class_name,
+                    'probability': prob,
+                    'class_index': int(idx)
+                })
+        
+        response = {
+            'prediction': label,
+            'confidence': float(confidence),
+            'top_predictions': top_predictions,
+            'gradcam_heatmap': f"data:image/png;base64,{heatmap_b64}",
+            'gradcam_overlay': f"data:image/png;base64,{superimposed_b64}",
+            'success': True
+        }
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        print(f"Error in predict_with_gradcam: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({
+            'error': str(e),
+            'success': False
+        }), 500
+
+@app.route('/analyze_class', methods=['POST'])
+def analyze_class():
+    """Analyze a specific class with Grad-CAM."""
+    try:
+        if 'image' not in request.json or 'class_index' not in request.json:
+            return jsonify({'error': 'Image data and class_index required'}), 400
+
+        # Preprocess the image
+        image_data = request.json['image']
+        processed_image = preprocess_image_data(image_data)
+        
+        # Get target class
+        target_class = int(request.json['class_index'])
+        
+        # Generate Grad-CAM for specific class
+        gradcam = GradCAM(model)
+        image_tensor = processed_image.reshape(1, 64, 64, 1)
+        
+        heatmap, predictions, _ = gradcam.generate_gradcam(image_tensor, class_idx=target_class)
+        superimposed = gradcam.create_superimposed_visualization(image_tensor, heatmap)
+        
+        # Convert to base64
+        buffered = io.BytesIO()
+        superimposed.save(buffered, format="PNG")
+        superimposed_b64 = base64.b64encode(buffered.getvalue()).decode()
+        
+        heatmap_img = Image.fromarray((heatmap * 255).astype(np.uint8))
+        heatmap_buffered = io.BytesIO()
+        heatmap_img.save(heatmap_buffered, format="PNG")
+        heatmap_b64 = base64.b64encode(heatmap_buffered.getvalue()).decode()
+        
+        # Get class information
+        class_name = label_mapping.get(str(target_class), f"Unknown-{target_class}")
+        class_confidence = float(predictions[0][target_class])
+        
+        response = {
+            'class_name': class_name,
+            'class_index': target_class,
+            'confidence': class_confidence,
+            'gradcam_heatmap': f"data:image/png;base64,{heatmap_b64}",
+            'gradcam_overlay': f"data:image/png;base64,{superimposed_b64}",
+            'success': True
+        }
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        print(f"Error in analyze_class: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({
+            'error': str(e),
+            'success': False
+        }), 500
 
 def main():
     global confidence_threshold

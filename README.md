@@ -1,114 +1,275 @@
-# Sketch Interpreter
+# Sketch Classification Project
 
-A machine learning application that recognizes hand-drawn sketches and provides audio feedback.
+A comprehensive machine learning application that recognizes hand-drawn sketches with CNN models, provides audio feedback, and includes **Grad-CAM visualization** for model interpretability and explainability.
 
-## Setup
+## 🚀 Features
 
-1. **Create a virtual environment**:
+- **🎨 Real-time Sketch Recognition**: Draw and get instant predictions
+- **🧠 CNN Model Training**: Custom CNN architecture with regularization
+- **🔍 Grad-CAM Visualization**: Visual explanations of model predictions
+- **🗣️ Text-to-Speech**: Audio feedback with confidence scores
+- **📊 Comprehensive Evaluation**: Detailed metrics and confusion matrices
+- **🌐 Web Interface**: Interactive Flask-based drawing application
+- **🔄 Multiple Model Support**: Both Keras CNN and scikit-learn models
+- **📱 RESTful API**: JSON-based prediction endpoints
+- **📈 Batch Processing**: Efficient analysis of multiple images
+
+## 🎯 NEW: Grad-CAM Visualization
+
+Understand what your CNN model focuses on when making predictions:
+
+- **Single Image Analysis**: Visualize attention patterns for individual sketches
+- **Batch Analysis**: Process multiple images with visualization
+- **Class-Specific Analysis**: See how the model would classify any specific class  
+- **Top-K Analysis**: Visualize attention for top predictions
+- **Web Integration**: Real-time Grad-CAM in the browser
+- **Command Line Tools**: Flexible analysis scripts
+
+**📖 For detailed Grad-CAM usage, see [`docs/GRADCAM_USAGE.md`](docs/GRADCAM_USAGE.md)**
+
+## 📁 Project Structure
+
+```
+├── src/
+│   ├── training/           # Model training scripts (CNN, baseline)
+│   ├── inference/          # Prediction and inference utilities
+│   ├── evaluation/         # Model evaluation and metrics
+│   ├── visualization/      # 🆕 Grad-CAM and visualization tools
+│   └── tts/               # Text-to-speech functionality
+├── app/                   # Flask web application with drawing interface
+├── scripts/               # 🆕 Standalone Grad-CAM analysis scripts
+├── utils/                 # Data preprocessing and conversion utilities
+├── tests/                 # Unit tests
+├── docs/                  # 🆕 Documentation and usage guides
+├── data/                  # Dataset and preprocessed data
+└── models/                # Trained model files
+```
+
+## 🚀 Quick Start
+
+### Installation
+
+```bash
+git clone <repository-url>
+cd sketch-classification
+pip install -r requirements.txt
+```
+
+### Download and Process Data
+
+1. **Download Quick Draw data**:
    ```bash
-   python3.9 -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-2. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Download data**:
+   # Create directories
+   mkdir -p data/raw data/processed/png
    
-   **Option 1: Direct download from Quick Draw website**
-   - Visit [Quick Draw Dataset](https://quickdraw.withgoogle.com/data)
-   - Download simplified drawings (NDJSON format) for categories like:
-     - cat
-     - tree
-     - car
-     - (add more as desired)
-   - Save files to `data/raw/` directory
-   
-   **Option 2: Command line download using gsutil**
-   ```bash
-   # Install Google Cloud SDK if you don't have it
-   # See: https://cloud.google.com/sdk/docs/install
-   
-   # Create raw data directory
-   mkdir -p data/raw
+   # Download from Quick Draw dataset
    cd data/raw
-   
-   # Download specific categories
    gsutil cp gs://quickdraw_dataset/full/simplified/cat.ndjson .
    gsutil cp gs://quickdraw_dataset/full/simplified/tree.ndjson .
    gsutil cp gs://quickdraw_dataset/full/simplified/car.ndjson .
-   
    cd ../..
    ```
-   
-   For more information on available categories, visit:
-   https://github.com/googlecreativelab/quickdraw-dataset#the-raw-moderated-dataset
 
-## Data Processing
-
-1. **Process the data**:
+2. **Process the data**:
    ```bash
-   # Create necessary directories
-   mkdir -p data/processed/png
-   
-   # Convert raw data to PNG images
+   # Convert to PNG images
    python utils/convert_to_png.py --input_dir data/raw --output_dir data/processed/png --max_samples 5000
    
-   # Preprocess images
+   # Preprocess images for training
    python utils/preprocess.py --input_dir data/processed/png --output_dir data/processed
    ```
 
-2. **Train the models**:
-   ```bash
-   # Run full training pipeline
-   python train.py
-   
-   # Or with custom parameters
-   python train.py --batch_size 128 --epochs 30
-   ```
+### Training Models
 
-## Usage
+```bash
+# Train CNN model
+python src/training/train_cnn.py \
+    --train_data data/processed/train.npz \
+    --val_data data/processed/val.npz \
+    --test_data data/processed/test.npz \
+    --label_mapping data/processed/label_mapping.json \
+    --output_dir models/
 
-1. **Run the web app**:
-   ```bash
-   # Find your model directory (replace TIMESTAMP with actual timestamp)
-   python app/app.py --model_path models/training_TIMESTAMP/cnn/best_model.h5 --label_mapping data/processed/label_mapping.json --port 5002
-   ```
+# Train baseline model
+python src/training/baseline.py \
+    --train_data data/processed/train.npz \
+    --test_data data/processed/test.npz \
+    --label_mapping data/processed/label_mapping.json \
+    --output_dir models/baseline/
+```
 
-2. **Open in browser**: Navigate to `http://localhost:5002`
+### Making Predictions
 
-3. **Draw sketches**: Draw on the canvas and click "Predict" to get classifications
+#### Command Line Prediction
+```bash
+python src/inference/predict.py \
+    --model_path models/best_model.h5 \
+    --image_path sketch.png \
+    --label_mapping data/processed/label_mapping.json
+```
 
-## Features
+#### With Grad-CAM Visualization
+```bash
+python src/inference/predict.py \
+    --model_path models/best_model.h5 \
+    --image_path sketch.png \
+    --label_mapping data/processed/label_mapping.json \
+    --gradcam \
+    --output_dir gradcam_visualizations/
+```
 
+#### Grad-CAM Analysis Scripts
+```bash
+# Single image analysis
+python scripts/gradcam_analysis.py \
+    --model models/best_model.h5 \
+    --labels data/processed/label_mapping.json \
+    --output results/ \
+    single --image sketch.png
+
+# Batch analysis
+python scripts/gradcam_analysis.py \
+    --model models/best_model.h5 \
+    --labels data/processed/label_mapping.json \
+    --output batch_results/ \
+    batch --images_dir sketches/
+
+# Class-specific analysis
+python scripts/gradcam_analysis.py \
+    --model models/best_model.h5 \
+    --labels data/processed/label_mapping.json \
+    --output class_analysis/ \
+    class --image sketch.png --class_name "cat"
+```
+
+### Web Interface
+
+```bash
+python app/app.py \
+    --model_path models/best_model.h5 \
+    --label_mapping data/processed/label_mapping.json \
+    --port 5000
+```
+
+Visit `http://localhost:5000` to use the interactive drawing interface with:
 - Real-time sketch recognition
-- Text-to-speech output with confidence score
-- Simple, intuitive drawing interface
-- Supports multiple sketch categories
+- Grad-CAM visualizations  
+- Audio feedback
+- Confidence scores
 
-## Architecture
+## 🔬 Model Evaluation
 
-- **Data Pipeline**: Converts Quick Draw vectors to normalized images
-- **Models**: Includes baseline, nearest-neighbor, and CNN classifiers
-- **Web Interface**: Flask app with HTML5 Canvas for drawing
-- **TTS**: Browser-based speech synthesis for results
+```bash
+python src/evaluation/evaluate.py \
+    --model_path models/best_model.h5 \
+    --test_data data/processed/test.npz \
+    --label_mapping data/processed/label_mapping.json \
+    --output_dir evaluation_results/
+```
 
-## Project Structure
-- `data/`: Dataset storage and preprocessing utilities
-- `models/`: Trained model checkpoints
-- `notebooks/`: Jupyter notebooks for exploration and visualization
-- `src/`: Source code for training, inference, and evaluation
-- `app/`: Web application
-- `tests/`: Unit tests
+## 🌐 API Endpoints
 
-## Model Architecture
-The sketch recognition model uses a CNN architecture with multiple convolutional layers followed by dense layers for classification.
+The web application provides several API endpoints:
 
-## Evaluation
-The model is evaluated on a test set with metrics including accuracy, precision, recall, and a confusion matrix.
+- **POST `/predict`**: Basic prediction from sketch image
+- **POST `/predict_with_gradcam`**: Prediction with Grad-CAM visualization
+- **POST `/analyze_class`**: Class-specific Grad-CAM analysis
 
-## License
-MIT
+Example usage:
+```javascript
+// Predict with Grad-CAM
+fetch('/predict_with_gradcam', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({image: base64ImageData})
+})
+.then(response => response.json())
+.then(data => {
+    console.log('Prediction:', data.prediction);
+    console.log('Confidence:', data.confidence);
+    // Display visualizations: data.gradcam_heatmap, data.gradcam_overlay
+});
+```
+
+## 🏗️ Architecture
+
+### CNN Model
+- Multiple convolutional layers with max pooling
+- Dropout and L2 regularization for overfitting prevention
+- Dense layers for final classification
+- Optimized for 64x64 grayscale sketch images
+
+### Grad-CAM Pipeline
+- Gradient computation through target convolutional layers
+- Heatmap generation and overlay visualization
+- Support for any convolutional layer analysis
+- Batch processing capabilities
+
+### Data Pipeline
+- Quick Draw vector data conversion to normalized images
+- Train/validation/test splits with proper preprocessing
+- Data augmentation and normalization
+
+## 📊 Evaluation Metrics
+
+The project provides comprehensive evaluation including:
+- Accuracy, precision, recall, F1-score
+- Confusion matrices with visualization
+- Confidence distribution analysis
+- Per-class performance metrics
+- Grad-CAM attention pattern analysis
+
+## 🛠️ Development
+
+### Running Tests
+```bash
+python -m pytest tests/
+```
+
+### Code Structure
+- **Modular design** with separate training, inference, and visualization components
+- **Clean interfaces** between data processing, model training, and evaluation
+- **Extensible architecture** for adding new model types and visualization techniques
+
+## 📖 Documentation
+
+- [`docs/GRADCAM_USAGE.md`](docs/GRADCAM_USAGE.md) - Comprehensive Grad-CAM guide
+- Model training parameters and hyperparameter tuning
+- API documentation and integration examples
+- Troubleshooting and performance optimization tips
+
+## 🎯 Use Cases
+
+### Educational
+- Demonstrate CNN interpretability with visual explanations
+- Understand model decision-making process
+- Teaching tool for machine learning concepts
+
+### Research & Development
+- Model debugging and validation
+- Feature importance analysis
+- Comparison of different CNN architectures
+
+### Production Applications
+- Model monitoring and quality assurance
+- User trust building through explainable AI
+- Error analysis and model improvement
+
+## 📄 License
+
+MIT License - see LICENSE file for details
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes with tests
+4. Submit a pull request
+
+## 🙏 Acknowledgments
+
+- Google's Quick Draw dataset for training data
+- TensorFlow/Keras for deep learning framework
+- Flask for web application framework
+- Grad-CAM paper authors for the visualization technique
 
